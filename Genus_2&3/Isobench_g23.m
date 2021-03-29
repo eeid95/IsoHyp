@@ -94,10 +94,10 @@ repeat
 
     Xi := [ PadicToFF(X[i,1]) : i in [1..g]];
 
-    time T := Tree(Xi);
+    T := Tree(Xi); //Computing the approx. of the first g components of the rational representation
     T := T[1]; T := PP!T[#T][1]; coeff := Coefficients(T);
 
-   
+    // Rational reconstruction   
     Num, Denom:= FastBerlekampMassey( g*ell^2, L!coeff[1] );
     Nums := [L!Coefficients(Denom)*L!coeff[k] : k in [2..#coeff-1]];
 
