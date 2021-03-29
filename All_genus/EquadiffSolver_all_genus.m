@@ -54,7 +54,7 @@ function EquadifSolver(ell , hC , hD , _Mij, _X0, _Y0, _u0 , _v0, PrP)
     end if;
 
     x := PolynomialRing(K).1;
-    L := LaurentSeriesRing(K : Precision := ell+2); t := L.1;
+    L := LaurentSeriesRing(K : Precision := 2*NumberOfColumns(_Mij)*ell+2); t := L.1;
 
     Mij := ZeroMatrix(L, NumberOfRows(_Mij) , NumberOfColumns(_Mij));
     X0 := ZeroMatrix(L , NumberOfRows(_X0) , NumberOfColumns(_X0));
@@ -73,7 +73,7 @@ function EquadifSolver(ell , hC , hD , _Mij, _X0, _Y0, _u0 , _v0, PrP)
     v0 := K!ChangeUniverse(Eltseq(_v0), Integers());
 
    
-    N := ell +1;
+    N := 2*NumberOfColumns(Mij)*ell +1;
     u := t + u0;
 
     h := Parent(x)![ K!ChangeUniverse(Eltseq(Coefficient(hC , i-1)), Integers()) : i in [1..2*NumberOfColumns(Mij) + 2] ];
