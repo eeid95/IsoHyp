@@ -85,7 +85,7 @@ repeat
     _Mij := DiagonalMatrix( K , g , [ell : i in [1..g]]);
 
     
-    X, timings := EquadifSolver(2*g*ell^2  , hC , hC , _Mij, _X0, _Y0, _u0 , _v0,PrP);
+    X, timings := EquadifSolver(ell^2  , hC , hC , _Mij, _X0, _Y0, _u0 , _v0,PrP);
   
     K := pAdicQuotientRing(p ,PrP); L<t> := LaurentSeriesRing(FF , 2*g*ell^2+1);
     PP<x> := PolynomialRing(L);
