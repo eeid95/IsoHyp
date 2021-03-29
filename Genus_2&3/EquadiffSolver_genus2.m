@@ -74,7 +74,7 @@ function EquadifSolver(ell , hC , hD , _Mij, _X0, _Y0, _u0 , _v0, PrP)
     X0 :=  Matrix( L, [ [x1_0] , [x2_0]]);
     Y0 := Matrix( L , [ [y1_0] , [y2_0]]);
 
-    N := ell +1;
+    N := 4*ell +1;
     u := t + u0;
 
     h := Parent(x)![ K!ChangeUniverse(Eltseq(Coefficient(hC , i-1)), Integers()) : i in [1..6] ];
