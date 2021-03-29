@@ -1,6 +1,6 @@
 /*  
 
-    Toolbox for computing isogenies between Jacobians of genus two curves
+    Toolbox for computing isogenies between Jacobians of hyperelliptic curves
     in the p-adics where p is odd. We solve the system of diff equations 
     using a Newton iteration. 
     
@@ -13,20 +13,20 @@
 
 
 /*    The following is a self-contained magma script that implements the algorithm of the paper 
-    " Fast compuation of hyperelliptic curve isognies in odd characteristic" by E. Eid, for genus 2 curves. 
+    " Fast compuation of hyperelliptic curve isognies in odd characteristic" by E. Eid. 
 
 */
 
 
 Iso_t := recformat<f, X0, Y0, G, PRC0>;
-
 Iso_t1 := recformat<f, X0, Y0, G>;
 
 
-forward IsoSolveInternal, MySqrtInvE, MySqrtInvPad, MySqrtInv, MatrixChangePrecision, integral, MyInv,IsoSolveInternal_op;
+forward IsoSolveInternal, MyMatrixInv, IsoSolveInternal_op , MySqrtInvE, MySqrtInvPad, MySqrtInv, MatrixChangePrecision, integral, MyInv;
 
 
-// The main function: we look for an (ell,ell)-isogeny defined over the p-adics from 
+
+// The main function: we look for an (ell,ell,...,ell)-isogeny defined over the p-adics from 
 // the Jacobian of the curve y^2 = hC 
 // to 
 // the Jacobian of the curve y^2 = hD.
@@ -39,75 +39,76 @@ forward IsoSolveInternal, MySqrtInvE, MySqrtInvPad, MySqrtInv, MatrixChangePreci
 
 function EquadifSolver(ell , hC , hD , _Mij, _X0, _Y0, _u0 , _v0, PrP)
 
-
+   
+    
     vprintf SEA, 1 : "Precomputations...\n";
+
 
     CK := Parent(_u0); /* The p-adic field*/ 
     PDef := DefiningPolynomial(CK);
     p := Prime(CK); 
-    
     K := pAdicQuotientRing(p, PrP); 
     
     if PDef ne Parent(PDef).1-1 then
-	    K<u> := UnramifiedExtension(K, DefiningPolynomial(CK));
+	K<u> := UnramifiedExtension(K, DefiningPolynomial(CK));
     end if;
 
     x := PolynomialRing(K).1;
-    L := LaurentSeriesRing(K : Precision := 4*ell+2); t := L.1;
+    L := LaurentSeriesRing(K : Precision := ell+2); t := L.1;
 
-    _m11 := _Mij[1,1]; _m12 := _Mij[1,2]; _m21 := _Mij[2,1]; _m22:= _Mij[2,2];
-    _x1_0 := _X0[1,1]; _x2_0:= _X0[2,1];
-    _y1_0 := _Y0[1,1]; _y2_0:= _Y0[2,1];
+    Mij := ZeroMatrix(L, NumberOfRows(_Mij) , NumberOfColumns(_Mij));
+    X0 := ZeroMatrix(L , NumberOfRows(_X0) , NumberOfColumns(_X0));
+    Y0 :=  ZeroMatrix(L , NumberOfRows(_Y0) , NumberOfColumns(_Y0));
 
-    m11  := K!ChangeUniverse(Eltseq(_m11), Integers());
-    m21  := K!ChangeUniverse(Eltseq(_m21), Integers());
-    m12  := K!ChangeUniverse(Eltseq(_m12), Integers());
-    m22  := K!ChangeUniverse(Eltseq(_m22), Integers());
-    x1_0 := K!ChangeUniverse(Eltseq(_x1_0), Integers());
-    x2_0 := K!ChangeUniverse(Eltseq(_x2_0), Integers());
-    y1_0 := K!ChangeUniverse(Eltseq(_y1_0), Integers());
-    y2_0 := K!ChangeUniverse(Eltseq(_y2_0), Integers());
+    for i:=1 to  NumberOfRows(_Mij) do  
+        X0[i,1]:= K!ChangeUniverse(Eltseq(_X0[i,1]), Integers());
+        Y0[i,1]:= K!ChangeUniverse(Eltseq(_Y0[i,1]), Integers());
+        for j:=1 to NumberOfColumns(_Mij) do 
+            Mij[i,j]:= L!ChangeUniverse(Eltseq(_Mij[i,j]), Integers());
+        end for;
+    end for;
+
+
     u0 := K!ChangeUniverse(Eltseq(_u0), Integers());
     v0 := K!ChangeUniverse(Eltseq(_v0), Integers());
 
-    Mij := Matrix( K , [ [m11,m12 ] , [m21,m22]]);
-    X0 :=  Matrix( L, [ [x1_0] , [x2_0]]);
-    Y0 := Matrix( L , [ [y1_0] , [y2_0]]);
-
+   
     N := ell +1;
     u := t + u0;
 
-    h := Parent(x)![ K!ChangeUniverse(Eltseq(Coefficient(hC , i-1)), Integers()) : i in [1..6] ];
+    h := Parent(x)![ K!ChangeUniverse(Eltseq(Coefficient(hC , i-1)), Integers()) : i in [1..2*NumberOfColumns(Mij) + 2] ];
     h := Evaluate(h, u);
+
+   
 
     r0 := 1 div v0;
     r1 := - (Coefficient(h,1) * r0) div (2*Coefficient(h,0));
     r2 := -(r0 * Coefficient(h,2)) div (2*Coefficient(h,0)) - (r1^2) div (2*r0) - ( r1 * Coefficient(h,1)) div Coefficient(h,0);
     vinv := MySqrtInv(h, N : Timings := [], PRC0 := [* 2, [*r0 + r1*t + r2*t^2 *] *] );
 
-    g1 := m11+ m21*u;
-    g1:= g1*vinv;
 
-    g2 := m12 + m22*u;
-    g2:= g2*vinv;
+    G := Matrix(L , [ [u^i] : i in [0..NumberOfRows(Mij) - 1]  ]);
+    G := vinv*Mij * G ;
 
-    G := Matrix(Parent(g1) , [[g1],[g2]]);
 
-    h2 := Parent(x)![ K!ChangeUniverse(Eltseq(Coefficient(hD , i-1)), Integers()) : i in [1..6] ];
+    h2 := Parent(x)![ K!ChangeUniverse(Eltseq(Coefficient(hD , i-1)), Integers()) : i in [1..2*NumberOfColumns(Mij) + 2] ];
     Prc:= rec<Iso_t1 | f :=h2 , X0:= X0 , Y0 := Y0, G := G>;
     
+    tm := Cputime();
+
     X := IsoSolveInternal_op(4, Prc);
+    Yi := Matrix(  [  [MySqrtInvE( Evaluate( h2 , X[i,1]) , 3 , 1/Y0[i,1])]  : i in [1..NumberOfRows(Y0)]] )  ;
+    PRC0 := [ [* 2 , [*Yi[i,1]*] *] : i in [1..NumberOfRows(Y0)] ];   
 
-    _y1 := MySqrtInvE( Evaluate( h2 , X[1,1]) , 3 , 1/Y0[1,1]);
-    _y2 := MySqrtInvE( Evaluate( h2 , X[2,1]) , 3 , 1/Y0[2,1]); 
-
-    PRC0 := [ [* 2 , [*_y1*] *] ,[* 2 , [*_y2*] *] ];   
+    timings := Cputime(tm);
 
     Prc:= rec<Iso_t | f :=h2 , X0:= X , Y0 := Y0, G := G, PRC0 := PRC0 >;
-    return IsoSolveInternal(N , Prc);
+
+    X , Timings := IsoSolveInternal(N , Prc);
+
+    return X, Timings cat [timings];
 
 end function;
-
 
 
 
@@ -116,57 +117,63 @@ function IsoSolveInternal_op(N, Prc);
     L := Parent(Prc`G[1,1]); t := L.1;
 
     if N le 1 then
-	    X := MatrixChangePrecision(Prc`X0,N);
-	    return X;
+	X := MatrixChangePrecision(Prc`X0,N);
+
+	return X, [* 0, [**] *];
     end if;
 
 
     M :=Ceiling((N)/2);
 
-    X :=IsoSolveInternal_op(M, Prc) ;
+    X , PRC0  :=IsoSolveInternal_op(M, Prc) ;
     
+   
     
     X:= MatrixChangePrecision(X, N);
-    x1 := X[1,1];
-    x2 := X[2,1];
-
-    /*
-     * N > 1
-     ********/
-
-    /* X0'*/
     
-    x1p:= Derivative(x1);
-    x2p := Derivative(x2);
-
-
-    /* Computation of 1/yi */
-    
-    tm := Cputime();
-    _y1 := MySqrtInvE(Evaluate( Prc`f , x1) , N , 1/ Prc`Y0[1,1]);
-    _y2:= MySqrtInvE(Evaluate( Prc`f , x2) , N , 1/ Prc`Y0[2,1]); 
-
-
-   /* The matrix G */
    
-    tm := Cputime();
-    x1y1 :=x1p*_y1;
-    x2y2 :=  x2p*_y2;
-    g1 := Prc`G [1,1];  g1 := g1 - x1y1 - x2y2;
-    g2 := Prc`G [2,1];  g2 := g2 - x1*x1y1 - x2*x2y2;
+    /* X0'*/
+    Xp := Matrix(L , [ [ Derivative(X[i,1]) ] :i in [1..NumberOfRows(X)]]);
     
-    G  := Matrix (Parent(g1) , [ [integral(g1)] , [integral(g2)]]);
-
-    x1x2 := MyInv(_y1*_y2*(x2-x1), N); 
-    M:= Matrix(Parent(g1), [  [x2*_y2 , -_y2] , [-x1*_y1 , _y1] ]   );
-
-    G :=x1x2* M * G;
     
-    // The result
+    /* Computation of 1/yi*/
+    Yi := Matrix(L , [  [ MySqrtInvE(Evaluate( Prc`f , X[i,1]) , N , 1/ Prc`Y0[i,1])] : i in  [1..NumberOfRows(X)]  ]);
 
-    X := X + G;
+
+   /* The matrix H */
+    n := NumberOfRows(Prc`X0);
+    H := ZeroMatrix(L ,n , n);
+    for j:= 1 to n do 
+        H[1,j]:= Yi[j,1];
+    end for;
+
+    for i := 2 to n do  
+        for j:= 1 to n do 
+            H[i,j]:= X[j,1]*H[i-1, j];
+        end for;
+    end for;
+
+    /* Inverse H */ 
+    Hinv, PRC0 := MyMatrixInv(H, N-1 : PRC0 := PRC0);
+
+
+    /* Computation of e = G - H * X'*/ 
+    e := H * Xp;
+    e := Prc`G - e ; 
+
+
+    /* Computation of the integral of e*/
+    for i := 1 to n do 
+        e[i,1] := integral(e[i,1]);
+    end for;
+
+    /* Computation of the new approx */
+    e := Hinv * e;
+    X := X + e;
     X := MatrixChangePrecision(X, N);
-    return X ;
+
+    
+    return X , PRC0 ;
 
 end function;
 
@@ -182,12 +189,11 @@ function IsoSolveInternal(N, Prc : Timings := []);
 	vprintf SEA, 1 : "From                1 to (N =) %8o ...", N;
 	X := MatrixChangePrecision(Prc`X0,N);
 
-	return X, [RealField(6) | 0 : i in [1..5]] , Prc`PRC0 , [* 0, [**] *];
+	return X, [RealField(6) | 0 : i in [1..6]] , Prc`PRC0 , [* 0, [**] *];
     end if;
 
 
     M := Max(3 , Ceiling((N)/2));
-
 
     X ,_Timings, PRC0, PRC1:=IsoSolveInternal(M, Prc : Timings:= Timings) ;
     
@@ -196,74 +202,89 @@ function IsoSolveInternal(N, Prc : Timings := []);
     vprintf SEA, 2 : "\n";
     
     X:= MatrixChangePrecision(X, N);
-    x1 := X[1,1];
-    x2 := X[2,1];
+    
+    
 
-    /*
-     * N > 1
-     ********/
-     
-    idxtm := 0;
+     idxtm := 0;
     
     /* X0'*/
     
     tm := Cputime();
-    x1p:= Derivative(x1);
-    x2p := Derivative(x2);
+
+    Xp := Matrix(L , [ [ Derivative(X[i,1]) ] :i in [1..NumberOfRows(X)]]);
 
     idxtm +:= 1; _Timings[idxtm] +:= Cputime(tm);
     vprintf SEA, 2 : "...  X'\t\t: %o\n", Cputime(tm);
     
     /* Computation of 1/yi */
     tm := Cputime();
-    _y1 := MySqrtInv( Evaluate( Prc`f , x1) , N : PRC0 := PRC0[1]); 
-    PRC01 := [* Max(N-M , 2) , [* ChangePrecision( _y1 , N-M) *] *];
-    _y2 := MySqrtInv( Evaluate( Prc`f , x2) , N: PRC0 := PRC0[2]);
-    PRC02 := [* Max(N-M ,2), [* ChangePrecision( _y2 , N-M) *] *];
+
+    Yi := Matrix(L , [  [ MySqrtInv(Evaluate( Prc`f , X[i,1]) , N : PRC0:= PRC0[i])] : i in  [1..NumberOfRows(X)]]);
+    PRC0 := [ [* Max(N- M , 2) , [* ChangePrecision( Yi[i,1] , N- M) *] *] : i in  [1..NumberOfRows(X)] ];
+
     idxtm +:= 1; _Timings[idxtm] +:= Cputime(tm);
     vprintf SEA, 2 : "...  Square Roots\t\t: %o\n", Cputime(tm);
 
-   /* The matrix G */
+   /* The matrix H */
     tm := Cputime();
-    x1y1 :=x1p*_y1;
-    x2y2 :=  x2p*_y2;
-    g1 := Prc`G [1,1];  g1 := g1 - x1y1 - x2y2;
-    g2 := Prc`G [2,1];  g2 := g2 - x1*x1y1 - x2*x2y2;
-    
+
+    n := NumberOfRows(Prc`X0);
+    H := ZeroMatrix(L ,n , n);
+    for j:= 1 to n do 
+        H[1,j]:= Yi[j,1];
+    end for;
+
+    for i := 2 to n do  
+        for j:= 1 to n do 
+            H[i,j]:= X[j,1]*H[i-1, j];
+        end for;
+    end for;
 
     idxtm +:= 1; _Timings[idxtm] +:= Cputime(tm);
-    vprintf SEA, 2 : "...  G - H(X)X'\t\t: %o\n", Cputime(tm);
+    vprintf SEA, 2 : "...  The matrix H\t\t: %o\n", Cputime(tm);
 
+
+    /* Inverse H */ 
     tm := Cputime();
-    G  := Matrix (Parent(g1) , [ [integral(g1)] , [integral(g2)]]);
+    Hinv, PRC1 := MyMatrixInv(H, N-1 : PRC0 := PRC1);
 
     idxtm +:= 1; _Timings[idxtm] +:= Cputime(tm);
-    vprintf SEA, 2 : "...  Integral of G \t\t: %o\n", Cputime(tm);
-    
-    tm := Cputime();
-    x1x2, PRC1 := MyInv(_y1*_y2*(x2-x1), N: PRC0 := PRC1); 
-    M:= Matrix(Parent(g1), [  [x2*_y2 , -_y2] , [-x1*_y1 , _y1] ]   );
+    vprintf SEA, 2 : "...  Inverse of H\t\t: %o\n", Cputime(tm);
 
 
-    vprintf SEA, 2 : "...  The result\t\t: %o\n", Cputime(tm);
-    G :=x1x2* M * G;
-    
+    /* Computation of e = G - H * X'*/ 
+    tm:= Cputime();
+
+    e := H * Xp;
+    e := Prc`G - e ; 
+
+    /* Computation of the integral of e*/
+
+    for i := 1 to n do 
+        e[i,1] := integral(e[i,1]);
+    end for;
 
     idxtm +:= 1; _Timings[idxtm] +:= Cputime(tm);
-    vprintf SEA, 2 : "...  The result\t\t: %o\n", Cputime(tm);
+    vprintf SEA, 2 : "...  Integral of e\t\t: %o\n", Cputime(tm);
 
-    X := X + G;
-    X := MatrixChangePrecision(X, N+1);
-    return X , _Timings , [PRC01 , PRC02], PRC1;
+    /* Computation of the new approx */
+    tm := Cputime();
+
+    e := Hinv * e;
+    X := X + e;
+    X := MatrixChangePrecision(X, N);
+
+    idxtm +:= 1; _Timings[idxtm] +:= Cputime(tm);
+    vprintf SEA, 2 : "...  Newton Formula\t\t: %o\n", Cputime(tm);
+
+    return X , _Timings , PRC0, PRC1;
 
 end function;
 
 
 
 
-
 function MatrixChangePrecision(M,N)
-
     n := NumberOfRows(M);
     m := NumberOfColumns(M);
     for i :=1 to n do 
@@ -272,11 +293,10 @@ function MatrixChangePrecision(M,N)
         end for;
     end for;
     return M;
-
 end function;
 
+ 
 
-//Newton iteration for computing 1/Sqrt(T)
 
 function MySqrtInvE(T,N,T0)
 
@@ -506,8 +526,6 @@ end function;
 
 
 
-// Newtion iteration for computing 1/A
-
 function MyInv(A, N : PRC0 := [* 0, [**] *])
 
     L := Parent(A); t := L.1;
@@ -530,9 +548,6 @@ function MyInv(A, N : PRC0 := [* 0, [**] *])
     return H, [* N, [* H *] *];
     
 end function;
-
-
-
 
 
 function PartialGCD(U, V, z, s)
@@ -558,10 +573,10 @@ function PartialGCD(U, V, z, s)
 
     return pi_left * pi_right;
 
-    end function;
+end function;
 
 
-    function FastBerlekampMassey(ell, T)
+function FastBerlekampMassey(ell, T)
 
     L := Parent(T); t := L.1;
     K := CoefficientRing(L); PR := PolynomialRing(K); x := PR.1;
@@ -578,11 +593,9 @@ function PartialGCD(U, V, z, s)
 
     A := V*PI[2, 2] mod x^(2*ell);
     B := PI[2, 2];
-
-
     return A, B;
-end function;
 
+end function;
 
 
 
@@ -597,7 +610,70 @@ function PadicToFF(T)
 
     Tp := Lp!T;
 
-    return Tp;
+return Tp;
+
+end function;
+
+
+function MyMatrixInv(A, N : PRC0 := [* 0, [**] *])
+
+    L := CoefficientRing(A); t := L.1;
+    F := BaseRing(L);
+
+    if N lt PRC0[1] or N eq 0 then
+	if #(PRC0[2]) eq 0 then
+        n := NumberOfRows(A); m := NumberOfColumns(A);
+        A0 := ZeroMatrix(F , n ,m);
+        for i:= 1 to n do 
+            for j:= 1 to m do 
+                A0[i,j]:= Coefficient(A[i,j],0);
+            end for;
+        end for;
+        H := A0^(-1);
+        H := MatrixChangePrecision(Matrix(L ,H ) , 1);
+	    return H, [* 0, [* H *] *];
+	end if;
+
+	return PRC0[2, 1], PRC0;
+
+    end if;
+
+    // Let us recurse
+    B, _ := MyMatrixInv(A, N div 2 : PRC0 := PRC0);
+    B:= MatrixChangePrecision(B, N+1);
+
+    H  := 2*B -  B*MatrixChangePrecision(A, N+1)*B ;
+  
+    
+    return H, [* N, [* H *] *];
+    
+end function;
+
+
+
+function Tree(a) // Given a vector a0,...,am compute the subproduct tree 
+                // defined with the polynomials x-a0,...,x-am.
+    
+     _<x> := PolynomialRing(Parent(a[1]));
+    M0j := [x-i : i in a];
+    T := [M0j]; 
+    m0 := #a;
+    m := [m0]; h:=[];
+
+    for i := 1 to Ceiling(Log(2,#a)) do
+        h0 := Floor(m0/2); Append(~h,h0);
+        for j := 0 to h0-1 do
+            M0j[j+1] := M0j[2*j+1]*M0j[2*j+2];   end for;
+        if m0 mod 2 eq 0 then   m0:= h0;  M0j := [M0j[i] : i in [1..m0]];
+        else M0j[h0+1] := M0j[m0]; m0:= h0+1; M0j := [M0j[i] : i in [1..m0]]; end if;
+
+
+    Append(~T,M0j); Append(~m , m0);
+      
+    end for;
+    Append(~h,0);
+
+    return <T, m,h> ;
 
 end function;
 
