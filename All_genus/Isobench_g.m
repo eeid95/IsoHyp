@@ -45,7 +45,7 @@ repeat
 
             PF := J![x - PtF[1] , PtF[2]]; QF := ell *PF;
            
-        until Degree(QF[1]) eq g and Discriminant(QF[1]) ne 0 and Degree(SplittingField(QF[1])) lt 2;
+        until Degree(QF[1]) eq g and Discriminant(QF[1]) ne 0 and Degree(SplittingField(QF[1])) lt g+1;
 
         f := QF[1]; SF := SplittingField(f); 
         hC:= S!hC1;
